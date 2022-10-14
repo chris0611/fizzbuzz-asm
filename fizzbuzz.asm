@@ -160,7 +160,7 @@ fizzbuzz_15:
     pop rbx
     ret
 
-align 0x20
+align 0x40
 ; appends a u64 string (rdi) with length (rsi) to the i/o buffer
 buf_write_u64:
     mov rdx, rsi
@@ -196,7 +196,7 @@ buf_empty:
     xor r13, r13
     ret
 
-align 0x40
+align 0x20
 ; utility subroutine to convert an unsigned integer (rdi)
 ; to a string (not zero terminated)
 u64_to_str:
