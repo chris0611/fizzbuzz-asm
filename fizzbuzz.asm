@@ -1,3 +1,8 @@
+section .rodata
+    align 0x40
+    first_15:       db  '1', 10, '2', 10, 'Fizz', 10, '4', 10, 'Buzz', 10, 'Fizz', 10, '7', 10, '8', 10, \
+                        'Fizz', 10, 'Buzz', 10, '11', 10, 'Fizz', 10, '13', 10, '14', 10, 'FizzBuzz', 10
+
 section .bss
     numbufsz        equ (1 << 6)
     align 0x40
@@ -18,9 +23,18 @@ align 0x1000
 _start:
     ; initialization
     vpxor ymm0, ymm0, ymm0      ; zero out ymm0
-    xor r13, r13                ; holds buffer size
+    mov r13, 58                 ; holds buffer size
     mov r14d, 0x7A7A7542        ; Buzz (but backwards bc. endianness)
     mov r15, 0x7A7A75427A7A6946 ; FizzBuzz
+    vmovdqa ymm1, [first_15]
+    vmovdqa ymm2, [first_15 + 32]
+    vmovdqa [io_buffer], ymm1
+    vmovdqa [io_buffer + 32], ymm2
+;   mov rax, 0x4141414141414141
+;   vmovq xmm1, rax
+;   vpbroadcastq ymm1, xmm1
+;   vmovdqu [io_buffer + (1 << 16) - 32], ymm1
+    xor rax, rax
     call fizzbuzz_main
     jmp exit
 
@@ -28,7 +42,7 @@ align 0x40
 fizzbuzz_main:
     push rbx
     mov r12, -1 ; number of iterations
-    mov rbx, 1  ; loop counter
+    mov rbx, 16  ; loop counter
 loop_start:
     mov rdi, rbx
     call u64_to_str
@@ -174,12 +188,20 @@ buf_write_u64:
     pop rdi
 append:
     xor rcx, rcx
+    cmp rsi, 0x07       ; checks if we can move a whole qword in one go
+    jbe append_loop
+    mov rcx, [rdi]
+    mov [io_buffer + r13], rcx 
+    mov rcx, 0x8
+    cmp rsi, 0x08
+    je append_exit
 append_loop:
-    mov dl, [rdi + rcx]
+    movzx edx, word [rdi + rcx]
     mov byte [io_buffer + rcx + r13], dl
     inc rcx
     cmp rcx, rsi
     jne append_loop
+append_exit:
     mov byte [io_buffer + rcx + r13], 0xA
     inc rcx
     lea r13, [r13+rcx]
