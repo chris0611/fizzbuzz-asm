@@ -2,10 +2,11 @@ section .rodata
     align 0x40
     first_15:       db  '1', 10, '2', 10, 'Fizz', 10, '4', 10, 'Buzz', 10, 'Fizz', 10, '7', 10, '8', 10, \
                         'Fizz', 10, 'Buzz', 10, '11', 10, 'Fizz', 10, '13', 10, '14', 10, 'FizzBuzz', 10
+    ascii_15:       db  '15'
 
 section .bss
     numbufsz        equ (1 << 6)
-    align 0x40
+    align 0x20
     num_buf:        resb numbufsz
 
     bufsz           equ (1 << 16)
@@ -14,9 +15,9 @@ section .bss
 
 section .text
     global _start
-    global u64_to_str
     global buf_empty
     global buf_write_u64
+    global inc_u64_str
     global fizzbuzz_main
 
 align 0x1000
@@ -30,32 +31,31 @@ _start:
     vmovdqa ymm2, [first_15 + 32]
     vmovdqa [io_buffer], ymm1
     vmovdqa [io_buffer + 32], ymm2
-;   mov rax, 0x4141414141414141
-;   vmovq xmm1, rax
-;   vpbroadcastq ymm1, xmm1
-;   vmovdqu [io_buffer + (1 << 16) - 32], ymm1
-    xor rax, rax
+    mov rax, 0x3030303030303030     ; '0' repeated 8 times
+    vmovq xmm1, rax
+    vpbroadcastq ymm1, xmm1
+    vmovdqa [num_buf], ymm1         ; set everything in num_buf to ASCII '0'
+    movzx eax, word [ascii_15]
+    mov word [num_buf + 0x1e], ax   ; initialize num_buf with 15
     call fizzbuzz_main
     jmp exit
 
 align 0x40
 fizzbuzz_main:
     push rbx
+    push r12
+    mov rbx,  2 ; number of digits
     mov r12, -1 ; number of iterations
-    mov rbx, 16  ; loop counter
 loop_start:
-    mov rdi, rbx
-    call u64_to_str
-    mov rdi, num_buf + 0x20
-    sub rdi, rax
-    mov rsi, rax
+    call inc_u64_str
+    mov rax, rbx
+    neg rax
+    lea rdi, [num_buf + 0x20 + rax]
     call buf_write_u64
-    inc rbx
-    mov rdi, rbx
-    call u64_to_str
-    mov rdi, num_buf + 0x20
-    sub rdi, rax
-    mov rsi, rax
+    call inc_u64_str
+    mov rax, rbx
+    neg rax
+    lea rdi, [num_buf + 0x20 + rax]
     call buf_write_u64
 
     ; Fizz (3)
@@ -66,13 +66,12 @@ fizz_3:
     mov dword [io_buffer + r13], r15d
     mov byte [io_buffer + r13 + 4], 0xA
     lea r13, [r13+5]
-    add rbx, 2
 
-    mov rdi, rbx
-    call u64_to_str
-    mov rdi, num_buf + 0x20
-    sub rdi, rax
-    mov rsi, rax
+    call inc_u64_str
+    call inc_u64_str
+    mov rax, rbx
+    neg rax
+    lea rdi, [num_buf + 0x20 + rax]
     call buf_write_u64
 
     ; Buzz (5)
@@ -92,20 +91,18 @@ fizz_6:
     mov dword [io_buffer + r13], r15d
     mov byte [io_buffer + r13 + 4], 0xA
     lea r13, [r13+5]
-    add rbx, 3
 
-    mov rdi, rbx
-    call u64_to_str
-    mov rdi, num_buf + 0x20
-    sub rdi, rax
-    mov rsi, rax
+    call inc_u64_str
+    call inc_u64_str
+    call inc_u64_str
+    mov rax, rbx
+    neg rax
+    lea rdi, [num_buf + 0x20 + rax]
     call buf_write_u64
-    inc rbx
-    mov rdi, rbx
-    call u64_to_str
-    mov rdi, num_buf + 0x20
-    sub rdi, rax
-    mov rsi, rax
+    call inc_u64_str
+    mov rax, rbx
+    neg rax
+    lea rdi, [num_buf + 0x20 + rax]
     call buf_write_u64
 
     ; Fizz (9)
@@ -125,13 +122,13 @@ buzz_10:
     mov dword [io_buffer + r13], r14d
     mov byte [io_buffer + r13 + 4], 0xA
     lea r13, [r13+5]
-    lea rbx, [rbx+3]
 
-    mov rdi, rbx
-    call u64_to_str
-    mov rdi, num_buf + 0x20
-    sub rdi, rax
-    mov rsi, rax
+    call inc_u64_str
+    call inc_u64_str
+    call inc_u64_str
+    mov rax, rbx
+    neg rax
+    lea rdi, [num_buf + 0x20 + rax]
     call buf_write_u64
 
     ; Fizz (12)
@@ -142,22 +139,18 @@ fizz_12:
     mov dword [io_buffer + r13], r15d
     mov byte [io_buffer + r13 + 4], 0xA
     lea r13, [r13+5]
-    add rbx, 2
 
-    mov rdi, rbx
-    call u64_to_str
-    mov rdi, num_buf + 0x20
-    sub rdi, rax
-    mov rsi, rax
+    call inc_u64_str
+    call inc_u64_str
+    mov rax, rbx
+    neg rax
+    lea rdi, [num_buf + 0x20 + rax]
     call buf_write_u64
-    inc rbx
-    mov rdi, rbx
-    call u64_to_str
-    mov rdi, num_buf + 0x20
-    sub rdi, rax
-    mov rsi, rax
+    call inc_u64_str
+    mov rax, rbx
+    neg rax
+    lea rdi, [num_buf + 0x20 + rax]
     call buf_write_u64
-    inc rbx
 
     ; FizzBuzz (15)
     cmp r13, bufsz-9
@@ -167,41 +160,29 @@ fizzbuzz_15:
     mov qword [io_buffer + r13], r15
     mov byte [io_buffer + r13 + 8], 0xA
     lea r13, [r13+9]
-    inc rbx
 
-    cmp rbx, r12
-    jb loop_start
+    call inc_u64_str
+    sub r12, 0xf
+    test r12, r12
+    jnz loop_start
+    pop r12
     pop rbx
     ret
 
 align 0x40
-; appends a u64 string (rdi) with length (rsi) to the i/o buffer
+; appends a u64 string (rdi) with length (rbx) to the i/o buffer
 buf_write_u64:
-    mov rdx, rsi
+    mov rdx, rbx
     lea rdx, [rdx+r13]
-    cmp rdx, bufsz-1    ; minus 1 to account for a newline
-    jb append           ; jump to appending, there is enough space :^)
+    cmp rdx, bufsz-17   ; subtract 16 (+1 to account for a newline)
+    jb buf_append       ; jump to appending, there is enough space :^)
     push rdi
-    push rsi
     call buf_empty
-    pop rsi
     pop rdi
-append:
-    xor rcx, rcx
-    cmp rsi, 0x07       ; checks if we can move a whole qword in one go
-    jbe append_loop
-    mov rcx, [rdi]
-    mov [io_buffer + r13], rcx 
-    mov rcx, 0x8
-    cmp rsi, 0x08
-    je append_exit
-append_loop:
-    movzx edx, word [rdi + rcx]
-    mov byte [io_buffer + rcx + r13], dl
-    inc rcx
-    cmp rcx, rsi
-    jne append_loop
-append_exit:
+buf_append:
+    vmovdqu xmm1, [rdi]
+    vmovdqu [io_buffer + r13], xmm1
+    mov rcx, rbx
     mov byte [io_buffer + rcx + r13], 0xA
     inc rcx
     lea r13, [r13+rcx]
@@ -219,36 +200,23 @@ buf_empty:
     ret
 
 align 0x20
-; utility subroutine to convert an unsigned integer (rdi)
-; to a string (not zero terminated)
-u64_to_str:
-    vmovdqa [rel num_buf], ymm0 ; copy ymm0 into buffer
-    test rdi, rdi
-    je iszero
-    xor rcx, rcx
-    ; some tricks used to avoid the `div` instruction
-    ; copied from assembly generated by clang
-    mov r8, 0xCCCCCCCCCCCCCCCD
-inner_loop:
-    mov rax, rdi
-    mul r8
-    shr rdx, 3
-    lea eax, [rdx + rdx]
-    lea r9d, [rax + 4*rax]
-    mov eax, edi
-    sub eax, r9d
-    or al, 0x30
-    mov byte [num_buf + rcx + 31], al
-    add rcx, -1
-    cmp rdi, 9
-    mov rdi, rdx
-    ja inner_loop
-    neg rcx
-    mov rax, rcx
-    ret
-iszero:
-    mov byte [rel num_buf + 31], 0x30 ; ASCII '0'
-    mov rax, 0x1
+; Increment number in num_buf, and length (rbx) if needed
+inc_u64_str:
+    xor rdx, rdx
+    dec rdx
+inc_loop:
+    movzx eax, byte [num_buf + 0x20 + rdx]
+    cmp eax, 0x39
+    jne inc_simple
+    mov byte [num_buf + 0x20 + rdx], 0x30
+    dec rdx
+    jmp inc_loop
+inc_simple:
+    inc eax
+    mov byte [num_buf + 0x20 + rdx], al
+    lea rax, [rbx + 1]
+    add rdx, rbx
+    cmovs rbx, rax
     ret
 
 align 0x20
